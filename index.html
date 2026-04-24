@@ -151,7 +151,6 @@ body{font-family:'Hiragino Sans',sans-serif;height:100vh;display:flex;overflow:h
           <button class="sec-all" onclick="openMylistModal()" style="background:#f3e5f5;color:#6a1b9a">＋ 追加</button>
         </div>
       </div>
-      <div id="mylist-items"></div>
     </div>
 
     <div class="sec">
@@ -524,8 +523,12 @@ function geocodeMylist(){
   });
 }
 function gasPost(payload,cb){
-  fetch(FOODS_GAS_URL,{method:'POST',mode:'no-cors',headers:{'Content-Type':'text/plain'},body:JSON.stringify(payload)})
-    .then(function(){if(cb)cb({ok:true});}).catch(function(e){if(cb)cb({ok:false,error:e.message});});
+  var fid='gf_'+Date.now();
+  var ifr=document.createElement('iframe');ifr.name=fid;ifr.style.display='none';document.body.appendChild(ifr);
+  var frm=document.createElement('form');frm.action=FOODS_GAS_URL;frm.method='POST';frm.target=fid;frm.style.display='none';
+  var inp=document.createElement('input');inp.type='hidden';inp.name='payload';inp.value=JSON.stringify(payload);
+  frm.appendChild(inp);document.body.appendChild(frm);frm.submit();
+  setTimeout(function(){if(frm.parentNode)frm.parentNode.removeChild(frm);if(ifr.parentNode)ifr.parentNode.removeChild(ifr);if(cb)cb({ok:true});},3000);
 }
 function saveMylistItem(){
   var name=document.getElementById('ml-name').value.trim();
