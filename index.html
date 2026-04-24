@@ -570,7 +570,7 @@ function deleteMylistItem(id){
   gasPost({action:'deleteMylist',id:id},null);
 }
 function renderMylistItems(){
-  var el=document.getElementById('mylist-items');el.innerHTML='';
+  var el=document.getElementById('mylist-items');if(!el)return;el.innerHTML='';
   if(!mylistData.length){el.innerHTML='<div style="font-size:11px;color:#aaa;padding:4px">登録なし</div>';return;}
   mylistData.forEach(function(m){
     var row=document.createElement('div');row.className='ml-item';
