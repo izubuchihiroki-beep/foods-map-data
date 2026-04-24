@@ -443,17 +443,19 @@ function showInfo(item,marker){
   // 重複ソースのデータを取得
   var MICH_STAR={'ミシュラン 三つ星':'★★★','ミシュラン 二つ星':'★★','ミシュラン 一つ星':'★','ビブグルマン':'BIB'};
   var dupExtra='';
+  var dupUrls={};
   if(item.dup&&item.dup.length>1){
     var THRESH=0.0005;
     allData.forEach(function(d){
       if(d.src===item.src||Math.abs(d.lat-item.lat)>THRESH||Math.abs(d.lng-item.lng)>THRESH)return;
+      if(d.url&&!dupUrls[d.src])dupUrls[d.src]=d.url;
       if(d.src==='goeimillau'&&d.score)dupExtra+='<div class="iw-row" style="color:#43a047">🍽 ゴ・エ・ミヨ '+esc(d.score)+'/20点</div>';
       if(d.src==='michelin'&&d.award)dupExtra+='<div class="iw-row" style="color:#f9a825">⭐ ミシュラン '+(MICH_STAR[d.award]||esc(d.award))+'</div>';
     });
   }
   var html='<div class="iw" id="iw-inner">'
-    +'<span class="iw-src" style="background:'+color+'">'+esc(SRC_LABEL[item.src]||item.src)+'</span>'
-    +(item.dup&&item.dup.length>1?item.dup.filter(function(s){return s!==item.src;}).map(function(s){return'<span class="iw-src" style="background:'+SRC_COLOR[s]+'">'+SRC_LABEL[s]+'</span>';}).join(' '):'')
+    +'<span class="iw-src" style="background:'+color+'">'+(item.url?'<a href="'+esc(item.url)+'" target="_blank" rel="noopener" style="color:#fff;text-decoration:none">'+esc(SRC_LABEL[item.src]||item.src)+'</a>':esc(SRC_LABEL[item.src]||item.src))+'</span>'
+    +(item.dup&&item.dup.length>1?item.dup.filter(function(s){return s!==item.src;}).map(function(s){var u=dupUrls[s];return'<span class="iw-src" style="background:'+SRC_COLOR[s]+'">'+(u?'<a href="'+esc(u)+'" target="_blank" rel="noopener" style="color:#fff;text-decoration:none">'+SRC_LABEL[s]+'</a>':SRC_LABEL[s])+'</span>';}).join(' '):'')
     +'<div class="iw-name">'+nameHtml+'</div>'
     +(item.award?'<div class="iw-row">🏆 '+esc(item.award)+'</div>':'')
     +(item.score?'<div class="iw-row">⭐ '+esc(item.score)+'</div>':'')
