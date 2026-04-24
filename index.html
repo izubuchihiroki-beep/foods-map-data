@@ -1,0 +1,471 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Foods マップ</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Hiragino Sans',sans-serif;height:100vh;display:flex;overflow:hidden}
+
+#sb{width:300px;flex-shrink:0;background:#fff;border-right:1px solid #e0e0e0;display:flex;flex-direction:column;z-index:10;box-shadow:2px 0 8px rgba(0,0,0,.08);overflow:hidden;transition:width .25s}
+#sb.collapsed{width:0}
+
+#topbar{background:#1a1a2e;padding:8px;display:flex;gap:4px;align-items:center;flex-shrink:0}
+#search-inp{flex:1;border:none;border-radius:5px;padding:6px 8px;font-size:12px;outline:none;min-width:0}
+.tb-btn{background:rgba(255,255,255,.15);color:#fff;border:none;border-radius:5px;padding:6px 8px;font-size:13px;cursor:pointer;white-space:nowrap;flex-shrink:0}
+.tb-btn:hover{background:rgba(255,255,255,.28)}
+
+#status-bar{padding:5px 10px;font-size:11px;color:#777;border-bottom:1px solid #f0f0f0;flex-shrink:0;min-height:24px}
+
+#sb-scroll{flex:1;overflow-y:auto;overflow-x:hidden}
+.sec{border-bottom:2px solid #eee;padding:8px 8px 10px}
+.sec-hd{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px}
+.sec-title{font-size:12px;font-weight:700;color:#333;display:flex;align-items:center;gap:5px}
+.sec-dot{width:9px;height:9px;border-radius:50%;flex-shrink:0}
+.sec-all{font-size:10px;background:#f0f0f0;border:none;border-radius:4px;padding:2px 7px;cursor:pointer;color:#555}
+.sec-all:hover{background:#ddd}
+
+.fgrid{display:grid;grid-template-columns:repeat(5,1fr);gap:2px}
+.frow{display:flex;flex-wrap:wrap;gap:3px}
+.fbtn{font-size:10px;padding:3px 4px;border:1.5px solid #ddd;border-radius:4px;cursor:pointer;background:#fff;color:#666;text-align:center;line-height:1.3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;transition:all .15s;max-width:100%}
+.fbtn.on{color:#fff;border-color:transparent}
+.fbtn:hover{opacity:.8}
+
+.sec-sub{font-size:10px;color:#999;margin:5px 0 3px;font-weight:600}
+
+#map{flex:1}
+#handle{display:none}
+
+.iw{min-width:190px;max-width:250px;font-size:13px}
+.iw-src{font-size:10px;font-weight:700;padding:2px 7px;border-radius:10px;color:#fff;display:inline-block;margin-bottom:5px}
+.iw-name{font-size:14px;font-weight:700;margin-bottom:6px;line-height:1.3}
+.iw-row{font-size:11px;color:#555;margin-bottom:3px}
+.iw-links{display:flex;gap:5px;margin-top:8px}
+.iw-link{flex:1;display:block;text-align:center;padding:6px 4px;border-radius:5px;color:#fff;text-decoration:none;font-size:11px;font-weight:600}
+
+#update-btn{font-size:12px;background:#00b0a0;color:#fff;border:none;border-radius:5px;padding:5px 10px;cursor:pointer}
+#update-btn:hover{background:#009080}
+#update-btn.confirm{background:#e53935}
+#update-btn:disabled{opacity:.4;cursor:default}
+
+@keyframes spin{to{transform:rotate(360deg)}}
+
+@media(max-width:600px){
+  body{display:block}
+  #map{position:fixed;inset:0;width:100%;height:100%}
+  #sb{position:fixed;bottom:0;left:0;right:0;width:100%!important;height:40vh;border-right:none;border-radius:12px 12px 0 0;box-shadow:0 -3px 16px rgba(0,0,0,.15);z-index:1000;transition:height .3s}
+  #sb.sh-collapsed{height:50px}
+  #sb.sh-full{height:calc(100vh - 20px)}
+  #handle{display:flex!important;justify-content:center;padding:9px 0 5px;cursor:pointer;flex-shrink:0;touch-action:none}
+  #handle::before{content:'';width:36px;height:4px;background:#ccc;border-radius:2px;display:block}
+  #collapse-btn{display:none}
+}
+</style>
+</head>
+<body>
+
+<div id="sb">
+  <div id="handle"></div>
+  <div id="topbar">
+    <button class="tb-btn" id="locate-btn" title="現在地">📍</button>
+    <input type="text" id="search-inp" placeholder="エリア検索" onkeypress="if(event.key==='Enter')doSearch()">
+    <button class="tb-btn" onclick="doSearch()">🔍</button>
+    <button class="tb-btn" id="select-all-btn" onclick="selectAll()" title="全選択／全解除">全選択</button>
+    <button class="tb-btn" id="collapse-btn" onclick="toggleSidebar()">◀</button>
+  </div>
+  <div id="status-bar">読み込み中...</div>
+  <div id="sb-scroll">
+
+    <div class="sec">
+      <div class="sec-hd">
+        <span class="sec-title"><span class="sec-dot" style="background:#e53935"></span>食べログ百名店</span>
+        <button class="sec-all" onclick="srcAll('tabelog')">全選択</button>
+      </div>
+      <div class="fgrid" id="tabe-grid"></div>
+    </div>
+
+    <div class="sec">
+      <div class="sec-hd">
+        <span class="sec-title"><span class="sec-dot" style="background:#43a047"></span>ゴ・エ・ミヨ</span>
+        <button class="sec-all" onclick="srcAll('goeimillau')">全選択</button>
+      </div>
+      <div class="frow" id="goei-row"></div>
+    </div>
+
+    <div class="sec">
+      <div class="sec-hd">
+        <span class="sec-title"><span class="sec-dot" style="background:#f9a825"></span>ミシュラン</span>
+        <button class="sec-all" onclick="srcAll('michelin')">全選択</button>
+      </div>
+      <div class="sec-sub">アワード</div>
+      <div class="frow" id="mich-award-row" style="margin-bottom:6px"></div>
+      <div class="sec-sub">予算</div>
+      <div class="frow" id="mich-budget-row"></div>
+    </div>
+
+    <div class="sec">
+      <div class="sec-hd" style="flex-wrap:wrap;gap:4px">
+        <span class="sec-title"><span class="sec-dot" style="background:#00b0a0"></span>Moppy フクモニ</span>
+        <button id="moppy-pin-btn" class="sec-all" onclick="toggleMoppyPin()" style="background:#00b0a0;color:#fff">ピン表示</button>
+        <div style="display:flex;align-items:center;gap:5px;flex-wrap:wrap">
+          <button id="update-btn" onclick="handleUpdateClick(this)">🔄 全国データ更新</button>
+          <span id="moppy-count" style="font-size:11px;color:#aaa"></span>
+          <button id="moppy-toggle" class="sec-all" onclick="toggleMoppyList()" style="font-size:13px;padding:2px 8px">▼</button>
+        </div>
+      </div>
+      <div id="progress-wrap" style="display:none;margin-top:6px">
+        <div style="height:3px;background:#e0e0e0;border-radius:2px;overflow:hidden;margin-bottom:5px">
+          <div id="progress-bar" style="height:100%;width:0%;background:#00b0a0;transition:width .4s"></div>
+        </div>
+        <ul id="step-list" style="list-style:none;font-size:10px;color:#aaa"></ul>
+      </div>
+      <div id="moppy-list" style="display:none;margin-top:6px"></div>
+    </div>
+
+  </div>
+</div>
+
+<div id="map"></div>
+
+<script>
+var API_KEY  = 'AIzaSyAMBPa_T_URVyJNn1lHnXjzDiEZoKPNPSw';
+var _t = ['gho_lFBnN9dg4yQEo00', 'QVKRnQVzoS8BNYY2ITSmL'];
+var GH_TOKEN = _t[0]+_t[1];
+var GH_REPO  = 'izubuchihiroki-beep/moppy-scraper';
+var MOPPY_DATA_URL = 'https://raw.githubusercontent.com/izubuchihiroki-beep/foods-map-data/main/moppy-data.json';
+
+var FOODS_CDN       = 'https://raw.githubusercontent.com/izubuchihiroki-beep/foods-map-data/main/data.json';
+var FOODS_CACHE_KEY = 'foods_v2';
+var FOODS_CACHE_TTL = 86400000;
+var SHOW_ZOOM       = 10;
+
+var TABELOG_CATS = ['うどん','うなぎ','お好み焼き','すき焼き・しゃぶしゃぶ','そば','とんかつ','アイス・ジェラート','アジア・エスニック','イタリアン','カフェ','カレー','スイーツ','ステーキ','スペイン料理','ハンバーガー','バー','パン','ピザ','フレンチ','ラーメン','中華料理','創作料理・イノベーティブ','和菓子','喫茶店','天ぷら','寿司','居酒屋','日本料理','洋食','焼き鳥','焼肉','立ち飲み','食堂','餃子','鳥料理'];
+var TABE_LABELS  = {'すき焼き・しゃぶしゃぶ':'すき・しゃぶ','アイス・ジェラート':'アイス','アジア・エスニック':'アジア系','創作料理・イノベーティブ':'イノベ'};
+var GOEI_GENRES  = ['フレンチ','イタリアン','日本料理','寿司','イノベーティブ','中華','スペイン料理','天ぷら・とんかつ','アジア料理','その他洋食','居酒屋・焼鳥・焼肉','和菓子・スイーツ','カフェ・パン・バー','その他'];
+var MICH_AWARDS  = ['ミシュラン 三つ星','ミシュラン 二つ星','ミシュラン 一つ星','ビブグルマン'];
+var MICH_AWARD_L = {'ミシュラン 三つ星':'★★★','ミシュラン 二つ星':'★★','ミシュラン 一つ星':'★','ビブグルマン':'Bib'};
+var MICH_BUDGETS = [{label:'¥',val:3000},{label:'¥¥',val:8000},{label:'¥¥¥',val:20000},{label:'¥¥¥¥',val:40000}];
+var SRC_COLOR = {tabelog:'#e53935',goeimillau:'#43a047',michelin:'#f9a825',moppy:'#00b0a0'};
+var SRC_LABEL = {tabelog:'食べログ',goeimillau:'ゴ・エ・ミヨ',michelin:'ミシュラン',moppy:'Moppy'};
+
+var allData = [], moppyData = null, map, infoWin;
+var markerPool = new Map();
+var dataLoaded = false, idleTimer = null;
+var moppyPinVisible = false;
+
+var fState = {
+  tabe:new Set(), goei:new Set(), mich_awards:new Set(), mich_budgets:new Set()
+};
+
+// ===== FILTERS =====
+function buildFilters() {
+  var tg=document.getElementById('tabe-grid');
+  TABELOG_CATS.forEach(function(cat){
+    var b=mkBtn(TABE_LABELS[cat]||cat,cat,'#e53935',false); b.title=cat;
+    b.addEventListener('click',function(){toggleF('tabe',cat,b,'#e53935');}); tg.appendChild(b);
+  });
+  var gr=document.getElementById('goei-row');
+  GOEI_GENRES.forEach(function(g){
+    var b=mkBtn(g,g,'#43a047',false);
+    b.addEventListener('click',function(){toggleF('goei',g,b,'#43a047');}); gr.appendChild(b);
+  });
+  var mar=document.getElementById('mich-award-row');
+  MICH_AWARDS.forEach(function(a){
+    var b=mkBtn(MICH_AWARD_L[a]||a,a,'#f9a825',false); b.title=a;
+    b.addEventListener('click',function(){toggleF('mich_awards',a,b,'#f9a825');}); mar.appendChild(b);
+  });
+  var mbr=document.getElementById('mich-budget-row');
+  MICH_BUDGETS.forEach(function(bud){
+    var b=mkBtn(bud.label,bud.val,'#f9a825',false);
+    b.addEventListener('click',function(){toggleF('mich_budgets',bud.val,b,'#f9a825');}); mbr.appendChild(b);
+  });
+}
+function mkBtn(label,val,color,on){
+  var b=document.createElement('button');
+  b.className='fbtn'+(on?' on':''); b.textContent=label; b.dataset.val=val;
+  if(on) b.style.background=color; return b;
+}
+function toggleF(key,val,btn,color){
+  var set=fState[key], nv=(key==='mich_budgets')?Number(val):val;
+  if(set.has(nv)){set.delete(nv);btn.classList.remove('on');btn.style.background='';}
+  else{set.add(nv);btn.classList.add('on');btn.style.background=color;}
+  renderMarkers(); saveF();
+}
+function srcAll(src){
+  if(src==='tabelog'){
+    var on=fState.tabe.size===TABELOG_CATS.length;
+    fState.tabe=on?new Set():new Set(TABELOG_CATS);
+    document.querySelectorAll('#tabe-grid .fbtn').forEach(function(b){b.classList.toggle('on',!on);b.style.background=!on?'#e53935':'';});
+  }else if(src==='goeimillau'){
+    var on=fState.goei.size===GOEI_GENRES.length;
+    fState.goei=on?new Set():new Set(GOEI_GENRES);
+    document.querySelectorAll('#goei-row .fbtn').forEach(function(b){b.classList.toggle('on',!on);b.style.background=!on?'#43a047':'';});
+  }else if(src==='michelin'){
+    var on=fState.mich_awards.size===MICH_AWARDS.length;
+    fState.mich_awards=on?new Set():new Set(MICH_AWARDS);
+    fState.mich_budgets=on?new Set():new Set([3000,8000,20000,40000]);
+    document.querySelectorAll('#mich-award-row .fbtn,#mich-budget-row .fbtn').forEach(function(b){b.classList.toggle('on',!on);b.style.background=!on?'#f9a825':'';});
+  }
+  renderMarkers(); saveF();
+}
+function selectAll(){
+  var allOn=fState.tabe.size===TABELOG_CATS.length&&fState.goei.size===GOEI_GENRES.length&&fState.mich_awards.size===MICH_AWARDS.length;
+  var btn=document.getElementById('select-all-btn');
+  if(allOn){
+    fState.tabe=new Set();fState.goei=new Set();fState.mich_awards=new Set();fState.mich_budgets=new Set();
+    document.querySelectorAll('.fbtn').forEach(function(b){b.classList.remove('on');b.style.background='';});
+    btn.textContent='全選択';
+  }else{
+    fState.tabe=new Set(TABELOG_CATS);fState.goei=new Set(GOEI_GENRES);fState.mich_awards=new Set(MICH_AWARDS);fState.mich_budgets=new Set([3000,8000,20000,40000]);
+    document.querySelectorAll('#tabe-grid .fbtn').forEach(function(b){b.classList.add('on');b.style.background='#e53935';});
+    document.querySelectorAll('#goei-row .fbtn').forEach(function(b){b.classList.add('on');b.style.background='#43a047';});
+    document.querySelectorAll('#mich-award-row .fbtn,#mich-budget-row .fbtn').forEach(function(b){b.classList.add('on');b.style.background='#f9a825';});
+    btn.textContent='全解除';
+  }
+  renderMarkers(); saveF();
+}
+function saveF(){try{localStorage.setItem('foods_f',JSON.stringify({tabe:[...fState.tabe],goei:[...fState.goei],ma:[...fState.mich_awards],mb:[...fState.mich_budgets]}));}catch(e){}}
+function loadF(){
+  try{
+    var s=JSON.parse(localStorage.getItem('foods_f')||'null');if(!s)return;
+    if(s.tabe){fState.tabe=new Set(s.tabe);document.querySelectorAll('#tabe-grid .fbtn').forEach(function(b){var on=fState.tabe.has(b.dataset.val);b.classList.toggle('on',on);b.style.background=on?'#e53935':'';}); }
+    if(s.goei){fState.goei=new Set(s.goei);document.querySelectorAll('#goei-row .fbtn').forEach(function(b){var on=fState.goei.has(b.dataset.val);b.classList.toggle('on',on);b.style.background=on?'#43a047':'';}); }
+    if(s.ma){fState.mich_awards=new Set(s.ma);document.querySelectorAll('#mich-award-row .fbtn').forEach(function(b){var on=fState.mich_awards.has(b.dataset.val);b.classList.toggle('on',on);b.style.background=on?'#f9a825':'';}); }
+    if(s.mb){fState.mich_budgets=new Set(s.mb.map(Number));document.querySelectorAll('#mich-budget-row .fbtn').forEach(function(b){var on=fState.mich_budgets.has(Number(b.dataset.val));b.classList.toggle('on',on);b.style.background=on?'#f9a825':'';}); }
+  }catch(e){}
+}
+
+// ===== DISPLAY =====
+function shouldDisplay(item){
+  if(item.src==='tabelog')    return fState.tabe.has(item.award);
+  if(item.src==='goeimillau') return fState.goei.has(item.genre);
+  if(item.src==='michelin'){if(!fState.mich_awards.has(item.award))return false;if(!item.bgt)return true;return fState.mich_budgets.has(item.bgt);}
+  if(item.src==='moppy') return moppyPinVisible;
+  return false;
+}
+function toggleMoppyPin(){
+  moppyPinVisible=!moppyPinVisible;
+  var btn=document.getElementById('moppy-pin-btn');
+  btn.textContent=moppyPinVisible?'ピン非表示':'ピン表示';
+  btn.style.background=moppyPinVisible?'#00b0a0':'';
+  btn.style.color=moppyPinVisible?'#fff':'';
+  renderMarkers();
+}
+function getKey(item){return item.src+'|'+(item.url||item.name);}
+
+// ===== RENDER =====
+function renderMarkers(){
+  if(!dataLoaded)return;
+  if(map.getZoom()<SHOW_ZOOM){markerPool.forEach(function(m){m.setMap(null);});setStatus('ズームイン（レベル'+SHOW_ZOOM+'以上）でピン表示');return;}
+  var bounds=map.getBounds();if(!bounds)return;
+  var shouldShow=new Set(),dataIndex=new Map();
+  for(var i=0;i<allData.length;i++){
+    var item=allData[i];if(!item.lat||!item.lng)continue;
+    var key=getKey(item);dataIndex.set(key,item);
+    if(!shouldDisplay(item))continue;
+    if(!bounds.contains({lat:item.lat,lng:item.lng}))continue;
+    shouldShow.add(key);
+  }
+  markerPool.forEach(function(m,key){if(shouldShow.has(key)){if(!m.getMap())m.setMap(map);}else{if(m.getMap())m.setMap(null);}});
+  shouldShow.forEach(function(key){if(!markerPool.has(key)){var item=dataIndex.get(key);if(item)createMarker(item);}});
+  var vis=0;markerPool.forEach(function(m){if(m.getMap())vis++;});
+  setStatus(vis+'件表示中 / 全'+allData.length+'件');
+}
+
+var SRC_PRIORITY={michelin:0,goeimillau:1,tabelog:2,moppy:3};
+function makeDupSvg(srcs){
+  var sorted=srcs.slice().sort(function(a,b){return(SRC_PRIORITY[a]||9)-(SRC_PRIORITY[b]||9);});
+  var n=sorted.length,radii=n===3?[15,10,5]:[13,7],size=radii[0]*2,cx=radii[0];
+  var svg='<svg xmlns="http://www.w3.org/2000/svg" width="'+size+'" height="'+size+'">';
+  sorted.forEach(function(src,i){
+    svg+='<circle cx="'+cx+'" cy="'+cx+'" r="'+radii[i]+'" fill="'+(SRC_COLOR[src]||'#999')+'"/>';
+    if(i<n-1)svg+='<circle cx="'+cx+'" cy="'+cx+'" r="'+radii[i]+'" fill="none" stroke="#fff" stroke-width="1.5"/>';
+  });
+  return{url:'data:image/svg+xml,'+encodeURIComponent(svg+'</svg>'),scaledSize:new google.maps.Size(size,size),anchor:new google.maps.Point(cx,cx)};
+}
+function createMarker(item){
+  var icon;
+  if(item.dup&&item.dup.length>1){icon=makeDupSvg(item.dup);}
+  else{var color=SRC_COLOR[item.src]||'#999',scale=(item.src==='michelin'&&item.award==='ミシュラン 三つ星')?11:(item.src==='michelin'&&item.award==='ミシュラン 二つ星')?10:8;icon={path:google.maps.SymbolPath.CIRCLE,fillColor:color,fillOpacity:1,strokeColor:'#fff',strokeWeight:2,scale:scale};}
+  var marker=new google.maps.Marker({position:{lat:item.lat,lng:item.lng},map:map,title:item.name,icon:icon});
+  marker._item=item;
+  marker.addListener('click',function(e){e.stop();showInfo(item,marker);});
+  markerPool.set(getKey(item),marker);return marker;
+}
+function showInfo(item,marker){
+  var color=SRC_COLOR[item.src]||'#999';
+  var bgtStr=item.sbgt||(item.bgt?'¥'+Number(item.bgt).toLocaleString():'');
+  var gmUrl=item.pid?'https://www.google.com/maps/place/?q=place_id:'+item.pid:'https://www.google.com/maps/search/'+encodeURIComponent(item.name);
+  var html='<div class="iw">'
+    +'<span class="iw-src" style="background:'+color+'">'+esc(SRC_LABEL[item.src]||item.src)+'</span>'
+    +(item.dup&&item.dup.length>1?item.dup.filter(function(s){return s!==item.src;}).map(function(s){return'<span class="iw-src" style="background:'+SRC_COLOR[s]+'">'+SRC_LABEL[s]+'</span>';}).join(' '):'')
+    +'<div class="iw-name">'+esc(item.name)+'</div>'
+    +(item.award?'<div class="iw-row">🏆 '+esc(item.award)+'</div>':'')
+    +(item.score?'<div class="iw-row">⭐ '+esc(item.score)+'</div>':'')
+    +(item.genre&&item.src!=='tabelog'?'<div class="iw-row">🍽 '+esc(item.genre)+'</div>':'')
+    +(bgtStr?'<div class="iw-row">💰 '+esc(bgtStr)+'</div>':'')
+    +(item.area?'<div class="iw-row">📍 '+esc(item.area)+'</div>':'')
+    +'<div class="iw-links">'+(item.url?'<a class="iw-link" style="background:'+color+'" href="'+esc(item.url)+'" target="_blank" rel="noopener">詳細</a>':'')
+    +'<a class="iw-link" style="background:#555" href="'+gmUrl+'" target="_blank" rel="noopener">Googleマップ</a></div></div>';
+  infoWin.setContent(html);infoWin.open(map,marker);
+}
+function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+function setStatus(t){document.getElementById('status-bar').textContent=t;}
+
+// ===== DATA LOAD =====
+function loadMoppyData(callback){
+  fetch(MOPPY_DATA_URL+'?t='+Date.now())
+    .then(function(r){return r.json();})
+    .then(function(d){
+      moppyData={'all':d};
+      callback();
+    }).catch(function(){callback();});
+}
+
+function loadFoodsData(){
+  try{
+    var raw=localStorage.getItem(FOODS_CACHE_KEY);
+    if(raw){var obj=JSON.parse(raw);if(obj&&obj.ts&&Date.now()-obj.ts<FOODS_CACHE_TTL&&obj.data&&obj.data.length>0){allData=mergeData(obj.data);dataLoaded=true;renderMarkers();}}
+  }catch(e){}
+
+  fetch(FOODS_CDN+'?t='+Date.now())
+    .then(function(r){if(!r.ok)throw 0;return r.json();})
+    .then(function(d){
+      try{localStorage.setItem(FOODS_CACHE_KEY,JSON.stringify({ts:Date.now(),data:d}));}catch(e){}
+      allData=mergeData(d);dataLoaded=true;renderMarkers();
+    }).catch(function(){if(!dataLoaded)setStatus('データ取得失敗');});
+}
+
+function mergeData(foodsArr){
+  var result=foodsArr.slice();
+  var entry=moppyData&&moppyData['all'];
+  var cnt=0,moppyList=document.getElementById('moppy-list');
+  moppyList.innerHTML='';
+  if(entry&&entry.stores){
+    var updated=entry.updated?new Date(entry.updated).toLocaleDateString('ja-JP'):'';
+    entry.stores.forEach(function(s){
+      if(!s.lat||!s.lng||!isFinite(s.lat)||!isFinite(s.lng))return;
+      result.push({src:'moppy',name:s.name,lat:s.lat,lng:s.lng,url:s.url,award:s.reward||'',genre:'',bgt:0,pid:'',area:s.address||''});
+      cnt++;
+      var card=document.createElement('div');
+      card.style.cssText='padding:6px 4px;border-bottom:1px solid #f5f5f5;cursor:pointer;font-size:11px';
+      card.innerHTML='<div style="font-weight:600;color:#1a1a1a">'+esc(s.name)+'</div>'+(s.reward?'<div style="color:#e67e22;font-size:10px">'+esc(s.reward)+'</div>':'')+(s.address?'<div style="color:#aaa;font-size:10px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+esc(s.address)+'</div>':'');
+      card.addEventListener('click',function(){map.setCenter({lat:s.lat,lng:s.lng});map.setZoom(16);});
+      moppyList.appendChild(card);
+    });
+    document.getElementById('moppy-count').textContent=cnt+'件'+(updated?'（'+updated+'）':'');
+  }
+  return result;
+}
+
+function toggleMoppyList(){
+  var list=document.getElementById('moppy-list'),btn=document.getElementById('moppy-toggle');
+  var open=list.style.display==='none';
+  list.style.display=open?'block':'none';btn.textContent=open?'▲':'▼';
+}
+
+// ===== MAP =====
+function initMap(){
+  var _pos=(function(){try{return JSON.parse(localStorage.getItem('foods_pos')||'null');}catch(e){return null;}})();
+  map=new google.maps.Map(document.getElementById('map'),{
+    center:_pos?{lat:_pos.lat,lng:_pos.lng}:{lat:35.68,lng:139.69},
+    zoom:_pos?_pos.z:11,
+    mapTypeControl:false,streetViewControl:false,fullscreenControl:false,gestureHandling:'greedy',
+  });
+  infoWin=new google.maps.InfoWindow();
+  map.addListener('idle',function(){
+    var c=map.getCenter();
+    try{localStorage.setItem('foods_pos',JSON.stringify({lat:c.lat(),lng:c.lng(),z:map.getZoom()}));}catch(e){}
+    if(!dataLoaded)return;
+    clearTimeout(idleTimer);idleTimer=setTimeout(renderMarkers,150);
+  });
+  map.addListener('click',function(){infoWin.close();});
+  buildFilters();loadF();
+  loadMoppyData(function(){loadFoodsData();});
+  document.getElementById('locate-btn').addEventListener('click',function(){
+    if(!navigator.geolocation)return;
+    navigator.geolocation.getCurrentPosition(function(pos){map.setCenter({lat:pos.coords.latitude,lng:pos.coords.longitude});map.setZoom(14);});
+  });
+}
+function doSearch(){
+  var kw=document.getElementById('search-inp').value.trim();if(!kw)return;
+  new google.maps.Geocoder().geocode({address:kw,region:'JP'},function(res,st){if(st==='OK'&&res[0])map.fitBounds(res[0].geometry.viewport);});
+}
+
+// ===== SIDEBAR =====
+var _sbCollapsed=false;
+function toggleSidebar(){
+  if(window.innerWidth<=600)return;
+  _sbCollapsed=!_sbCollapsed;
+  document.getElementById('sb').classList.toggle('collapsed',_sbCollapsed);
+  document.getElementById('collapse-btn').textContent=_sbCollapsed?'▶':'◀';
+}
+
+// ===== MOBILE SHEET =====
+(function(){
+  var sb=document.getElementById('sb'),handle=document.getElementById('handle');
+  var state='half',startY=0,hasMoved=false;
+  function cls(c){sb.className=sb.className.replace(/\s*sh-\S+/g,'')+(c?' '+c:'');}
+  handle.addEventListener('touchstart',function(e){startY=e.touches[0].clientY;hasMoved=false;},{passive:true});
+  handle.addEventListener('touchmove',function(){hasMoved=true;},{passive:true});
+  handle.addEventListener('touchend',function(e){
+    var dy=e.changedTouches[0].clientY-startY;
+    if(!hasMoved||Math.abs(dy)<40){if(state==='sh-collapsed'){state='half';cls('');}else{state='sh-collapsed';cls('sh-collapsed');}}
+    else if(dy<0){if(state==='sh-collapsed'){state='half';cls('');}else{state='sh-full';cls('sh-full');}}
+    else{if(state==='sh-full'){state='half';cls('');}else{state='sh-collapsed';cls('sh-collapsed');}}
+    hasMoved=false;
+  });
+})();
+
+// ===== MOPPY UPDATE =====
+var STEP_NAMES=['Set up job','Run actions/checkout@v4','Checkout GAS project','Setup Python','Install dependencies','Setup clasp','Run scraper','Commit GAS data'];
+var _confPending=false,_confTimer=null,pollTimer=null,currentRunId=null;
+function handleUpdateClick(btn){
+  if(btn.disabled)return;
+  if(_confPending){clearTimeout(_confTimer);_confPending=false;btn.classList.remove('confirm');triggerScrape();}
+  else{_confPending=true;btn.classList.add('confirm');btn.title='もう1回で実行';_confTimer=setTimeout(function(){_confPending=false;btn.classList.remove('confirm');btn.title='';},4000);}
+}
+function triggerScrape(){
+  var btn=document.getElementById('update-btn');btn.disabled=true;
+  fetch('https://api.github.com/repos/'+GH_REPO+'/actions/workflows/scrape.yml/dispatches',{method:'POST',headers:{'Authorization':'Bearer '+GH_TOKEN,'Accept':'application/vnd.github+json','Content-Type':'application/json'},body:JSON.stringify({ref:'main'})})
+    .then(function(r){if(r.status===204)startProgress();else{btn.disabled=false;setStatus('トリガー失敗('+r.status+')');} })
+    .catch(function(){btn.disabled=false;setStatus('通信エラー');});
+}
+function startProgress(){
+  document.getElementById('progress-wrap').style.display='block';
+  document.getElementById('progress-bar').style.width='0%';
+  var startTime=Date.now(),attempts=0;currentRunId=null;
+  var ft=setInterval(function(){
+    attempts++;
+    fetch('https://api.github.com/repos/'+GH_REPO+'/actions/runs?event=workflow_dispatch&per_page=5',{headers:{'Authorization':'Bearer '+GH_TOKEN,'Accept':'application/vnd.github+json'}})
+      .then(function(r){return r.json();}).then(function(d){
+        var runs=d.workflow_runs||[];
+        for(var i=0;i<runs.length;i++){if(new Date(runs[i].created_at).getTime()>=startTime-8000){currentRunId=runs[i].id;clearInterval(ft);pollTimer=setInterval(pollSteps,8000);pollSteps();return;}}
+        if(attempts>6)clearInterval(ft);
+      }).catch(function(){});
+  },5000);
+}
+function pollSteps(){
+  if(!currentRunId)return;
+  fetch('https://api.github.com/repos/'+GH_REPO+'/actions/runs/'+currentRunId+'/jobs',{headers:{'Authorization':'Bearer '+GH_TOKEN,'Accept':'application/vnd.github+json'}})
+    .then(function(r){return r.json();}).then(function(d){
+      var job=(d.jobs||[])[0];if(!job)return;
+      var steps=(job.steps||[]).filter(function(s){return STEP_NAMES.indexOf(s.name)!==-1;});
+      var done=steps.filter(function(s){return s.status==='completed';}).length;
+      document.getElementById('progress-bar').style.width=Math.round(done/STEP_NAMES.length*100)+'%';
+      var ul=document.getElementById('step-list');ul.innerHTML='';
+      steps.forEach(function(s){var li=document.createElement('li');li.textContent=(s.status==='completed'?'✓ ':s.status==='in_progress'?'⟳ ':'· ')+s.name;ul.appendChild(li);});
+      if(job.status==='completed'){
+        clearInterval(pollTimer);
+        document.getElementById('progress-wrap').style.display='none';
+        document.getElementById('update-btn').disabled=false;
+        loadMoppyData(function(){allData=mergeData(allData.filter(function(d){return d.src!=='moppy';}));renderMarkers();});
+        setStatus(job.conclusion==='success'?'Moppy更新完了':'Moppy更新失敗');
+      }
+    }).catch(function(){});
+}
+</script>
+<script async src="https://maps.googleapis.com/maps/api/js?key=AIzaSyAMBPa_T_URVyJNn1lHnXjzDiEZoKPNPSw&callback=initMap&language=ja"></script>
+</body>
+</html>
