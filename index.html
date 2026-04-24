@@ -211,6 +211,7 @@ var _t = ['gho_lFBnN9dg4yQEo00', 'QVKRnQVzoS8BNYY2ITSmL'];
 var GH_TOKEN = _t[0]+_t[1];
 var GH_REPO  = 'izubuchihiroki-beep/moppy-scraper';
 var MOPPY_DATA_URL = 'https://raw.githubusercontent.com/izubuchihiroki-beep/foods-map-data/main/moppy-data.json';
+var FOODS_GAS_URL  = 'https://script.google.com/macros/s/AKfycbzFhfWjjQripKM0_--JQpT1QRjy6Os6D4z4ukXqcnl8YU58Xb9PUOxvdXfaT0IHr8v1IQ/exec';
 
 var FOODS_CDN       = 'https://raw.githubusercontent.com/izubuchihiroki-beep/foods-map-data/main/data.json';
 var FOODS_CACHE_KEY = 'foods_v2';
@@ -494,11 +495,12 @@ function buildMylistGenreSelect(){
     var o=document.createElement('option');o.value=cat;o.textContent=TABE_LABELS[cat]||cat;sel.appendChild(o);
   });
 }
-function openMylistModal(){
-  _mlLat=null;_mlLng=null;
-  document.getElementById('ml-name').value='';
-  document.getElementById('ml-addr').value='';
-  document.getElementById('ml-geo-status').textContent='';
+function openMylistModal(prefill){
+  _mlLat=(prefill&&prefill.lat)||null;
+  _mlLng=(prefill&&prefill.lng)||null;
+  document.getElementById('ml-name').value=(prefill&&prefill.name)||'';
+  document.getElementById('ml-addr').value=(prefill&&prefill.address)||'';
+  document.getElementById('ml-geo-status').textContent=(_mlLat?'✓ 位置取得済':'');
   document.getElementById('ml-genre').value='';
   document.getElementById('ml-bgt-l').value='';
   document.getElementById('ml-bgt-d').value='';
@@ -521,25 +523,37 @@ function geocodeMylist(){
     }
   });
 }
+function gasPost(payload,cb){
+  fetch(FOODS_GAS_URL,{method:'POST',mode:'no-cors',body:JSON.stringify(payload)})
+    .then(function(){if(cb)cb({ok:true});}).catch(function(e){if(cb)cb({ok:false,error:e.message});});
+}
 function saveMylistItem(){
   var name=document.getElementById('ml-name').value.trim();
   if(!name){document.getElementById('ml-name').focus();return;}
   if(!_mlLat||!_mlLng){document.getElementById('ml-geo-status').textContent='住所を検索してください';return;}
-  var item={
-    id:'ml_'+Date.now(),
-    src:'mylist',
+  var saveBtn=document.querySelector('#ml-box .ml-btn.primary');
+  if(saveBtn){saveBtn.disabled=true;saveBtn.textContent='保存中…';}
+  var payload={
+    action:'addMylist',
     name:name,
+    address:document.getElementById('ml-addr').value.trim(),
     lat:_mlLat,lng:_mlLng,
     genre:document.getElementById('ml-genre').value,
     bgt_l:Number(document.getElementById('ml-bgt-l').value)||0,
     bgt_d:Number(document.getElementById('ml-bgt-d').value)||0,
     memo:document.getElementById('ml-memo').value.trim(),
-    url:'',pid:'',award:'',score:'',sbgt:'',area:'',
   };
-  if(item.memo){memoData[getKey(item)]=item.memo;try{localStorage.setItem('foods_memo',JSON.stringify(memoData));}catch(e){}}
-  mylistData.push(item);saveMylist();
-  allData.push(item);renderMylistItems();renderMarkers();
-  closeMylistModal();
+  gasPost(payload,function(res){
+    // GASはno-corsでレスポンス読めないので常にok扱い
+    var id='ml_'+Date.now();
+    var item=Object.assign({id:id,src:'mylist',url:'',pid:'',award:'',score:'',sbgt:'',area:''},payload);
+    item.bgt_l=Number(payload.bgt_l)||0;item.bgt_d=Number(payload.bgt_d)||0;
+    if(item.memo){memoData[getKey(item)]=item.memo;try{localStorage.setItem('foods_memo',JSON.stringify(memoData));}catch(e){}}
+    mylistData.push(item);saveMylist();
+    allData.push(item);renderMylistItems();renderMarkers();
+    if(saveBtn){saveBtn.disabled=false;saveBtn.textContent='保存';}
+    closeMylistModal();
+  });
 }
 function deleteMylistItem(id){
   mylistData=mylistData.filter(function(m){return m.id!==id;});
@@ -658,8 +672,13 @@ function doSearch(){
     map.fitBounds(r.geometry.viewport);
     var tmp=new google.maps.Marker({position:loc,map:map,icon:{path:google.maps.SymbolPath.CIRCLE,fillColor:'#555',fillOpacity:1,strokeColor:'#fff',strokeWeight:2,scale:10}});
     var gmUrl=(pid&&pid.indexOf('ChIJ')===0)?'https://www.google.com/maps/place/?q=place_id:'+pid:'https://maps.google.com/?q='+loc.lat()+','+loc.lng();
+    var _geo={name:kw,address:addr,lat:loc.lat(),lng:loc.lng()};
     var html='<div class="iw"><div class="iw-name">'+esc(kw)+'</div><div class="iw-row">📍 '+esc(addr)+'</div>'
-      +'<div class="iw-links"><a class="iw-link" style="background:#555" href="'+esc(gmUrl)+'" target="_blank" rel="noopener">Googleマップ</a></div></div>';
+      +'<div class="iw-links">'
+      +'<a class="iw-link" style="background:#9c27b0" href="#" onclick="openMylistModal(window._lastGeo);return false">＋ マイリスト</a>'
+      +'<a class="iw-link" style="background:#555" href="'+esc(gmUrl)+'" target="_blank" rel="noopener">Googleマップ</a>'
+      +'</div></div>';
+    window._lastGeo=_geo;
     infoWin.setContent(html);infoWin.open(map,tmp);
     infoWin.addListener('closeclick',function(){tmp.setMap(null);});
   });
