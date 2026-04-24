@@ -652,7 +652,17 @@ function doSearch(){
     if(found.length>1)setStatus(found.length+'件ヒット: '+found.map(function(d){return d.name;}).slice(0,5).join(' / '));
     return;
   }
-  new google.maps.Geocoder().geocode({address:kw,region:'JP'},function(res,st){if(st==='OK'&&res[0])map.fitBounds(res[0].geometry.viewport);});
+  new google.maps.Geocoder().geocode({address:kw,region:'JP'},function(res,st){
+    if(st!=='OK'||!res[0])return;
+    var r=res[0],loc=r.geometry.location,pid=r.place_id,addr=r.formatted_address;
+    map.fitBounds(r.geometry.viewport);
+    var tmp=new google.maps.Marker({position:loc,map:map,icon:{path:google.maps.SymbolPath.CIRCLE,fillColor:'#555',fillOpacity:1,strokeColor:'#fff',strokeWeight:2,scale:10}});
+    var gmUrl=(pid&&pid.indexOf('ChIJ')===0)?'https://www.google.com/maps/place/?q=place_id:'+pid:'https://maps.google.com/?q='+loc.lat()+','+loc.lng();
+    var html='<div class="iw"><div class="iw-name">'+esc(kw)+'</div><div class="iw-row">📍 '+esc(addr)+'</div>'
+      +'<div class="iw-links"><a class="iw-link" style="background:#555" href="'+esc(gmUrl)+'" target="_blank" rel="noopener">Googleマップ</a></div></div>';
+    infoWin.setContent(html);infoWin.open(map,tmp);
+    infoWin.addListener('closeclick',function(){tmp.setMap(null);});
+  });
 }
 
 // ===== SIDEBAR =====
