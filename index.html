@@ -448,7 +448,7 @@ function createMarker(item){
 function showInfo(item,marker){
   var color=SRC_COLOR[item.src]||'#999';
   var bgtStr=item.sbgt||(item.bgt_d?'夜 ¥'+Number(item.bgt_d).toLocaleString()+(item.bgt_l?' / 昼 ¥'+Number(item.bgt_l).toLocaleString():''):'');
-  var gmUrl=item.pid?'https://www.google.com/maps/place/?q=place_id:'+item.pid:'https://www.google.com/maps/search/'+encodeURIComponent(item.name);
+  var gmUrl=(item.pid&&item.pid.indexOf('ChIJ')===0)?'https://www.google.com/maps/place/?q=place_id:'+item.pid:(item.lat&&item.lng)?'https://maps.google.com/?q='+item.lat+','+item.lng+'&query='+encodeURIComponent(item.name):'https://www.google.com/maps/search/'+encodeURIComponent(item.name);
   var key=getKey(item);
   var existingMemo=memoData[key]||'';
   var nameHtml=item.url?'<a href="'+esc(item.url)+'" target="_blank" rel="noopener">'+esc(item.name)+'</a>':esc(item.name);
