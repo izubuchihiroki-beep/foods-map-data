@@ -143,7 +143,7 @@ body{font-family:'Hiragino Sans',sans-serif;height:100vh;display:flex;overflow:h
       <div class="frow" id="mich-budget-row"></div>
     </div>
 
-    <div class="sec">
+    <div class="sec" id="mylist-sec">
       <div class="sec-hd">
         <span class="sec-title"><span class="sec-dot" style="background:#9c27b0"></span>マイリスト</span>
         <div style="display:flex;gap:4px">
@@ -214,6 +214,8 @@ var FOODS_GAS_URL  = 'https://script.google.com/macros/s/AKfycbzFhfWjjQripKM0_--
 
 var FOODS_CDN       = 'https://raw.githubusercontent.com/wherethereisawillthereisaway2026/foods-map-data/main/data.json';
 var FOODS_CACHE_KEY = 'foods_v3';
+var MASTER_KEY = 'ag2026';  // マスターURL: ?m=ag2026
+var isMaster = (new URLSearchParams(location.search).get('m') === MASTER_KEY);
 var FOODS_CACHE_TTL = 86400000;
 var SHOW_ZOOM       = 10;
 
@@ -373,7 +375,7 @@ function shouldDisplay(item){
   if(item.src==='goeimillau') return fState.goei.size>0 && fState.goei.has(item.genre) && passBudgetFilter(item);
   if(item.src==='michelin'){if(fState.mich_awards.size===0)return false;if(!fState.mich_awards.has(item.award))return false;if(fState.mich_budgets.size>0&&!fState.mich_budgets.has(item.bgt_d||0))return false;return passBudgetFilter(item);}
   if(item.src==='moppy') return moppyPinVisible && passBudgetFilter(item);
-  if(item.src==='mylist') return mylistPinVisible;
+  if(item.src==='mylist') return isMaster && mylistPinVisible;
   return false;
 }
 function toggleMylistPin(){
@@ -465,9 +467,9 @@ function showInfo(item,marker){
     +dupExtra
     +(bgtStr?'<div class="iw-row">💰 '+esc(bgtStr)+'</div>':'')
     +(item.area?'<div class="iw-row">📍 '+esc(item.area)+'</div>':'')
-    +(existingMemo?'<div class="iw-memo-existing" onclick="openMemoEdit(\''+esc(key)+'\')">📝 '+esc(existingMemo)+'</div>':'')
+    +(isMaster&&existingMemo?'<div class="iw-memo-existing" onclick="openMemoEdit(\''+esc(key)+'\')">📝 '+esc(existingMemo)+'</div>':'')
     +'<div class="iw-links">'
-    +'<a class="iw-link" style="background:'+color+'" href="#" onclick="openMemoEdit(\''+esc(key)+'\');return false">メモ</a>'
+    +(isMaster?'<a class="iw-link" style="background:'+color+'" href="#" onclick="openMemoEdit(\''+esc(key)+'\');return false">メモ</a>':'')
     +'<a class="iw-link" style="background:#555" href="'+gmUrl+'" target="_blank" rel="noopener">Googleマップ</a></div></div>';
   infoWin.setContent(html);infoWin.open(map,marker);
 }
@@ -655,6 +657,7 @@ function initMap(){
   });
   map.addListener('click',function(){infoWin.close();});
   try{localStorage.removeItem('foods_f');}catch(e){}
+  if(!isMaster){var ms=document.getElementById('mylist-sec');if(ms)ms.style.display='none';}
   loadMylist();loadMemo();buildFilters();buildMylistGenreSelect();renderMylistItems();
   loadMoppyData(function(){loadFoodsData();});
   document.getElementById('locate-btn').addEventListener('click',function(){
@@ -685,7 +688,7 @@ function doSearch(){
     var _geo={name:kw,address:addr,lat:loc.lat(),lng:loc.lng()};
     var html='<div class="iw"><div class="iw-name">'+esc(kw)+'</div><div class="iw-row">📍 '+esc(addr)+'</div>'
       +'<div class="iw-links">'
-      +'<a class="iw-link" style="background:#9c27b0" href="#" onclick="openMylistModal(window._lastGeo);return false">＋ マイリスト</a>'
+      +(isMaster?'<a class="iw-link" style="background:#9c27b0" href="#" onclick="openMylistModal(window._lastGeo);return false">＋ マイリスト</a>':'')
       +'<a class="iw-link" style="background:#555" href="'+esc(gmUrl)+'" target="_blank" rel="noopener">Googleマップ</a>'
       +'</div></div>';
     window._lastGeo=_geo;
