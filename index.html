@@ -420,7 +420,7 @@ function shouldDisplay(item){
   if(item.src==='goeimillau') return fState.goei.size>0 && fState.goei.has(item.genre) && passBudgetFilter(item);
   if(item.src==='michelin'){if(fState.mich_awards.size===0)return false;if(!fState.mich_awards.has(item.award))return false;if(fState.mich_budgets.size>0&&!fState.mich_budgets.has(item.bgt_d||0))return false;return passBudgetFilter(item);}
   if(item.src==='moppy') return moppyPinVisible && passBudgetFilter(item);
-  if(item.src==='mylist') return mylistPinVisible;
+  if(item.src==='mylist') return isMaster && mylistPinVisible;
   return false;
 }
 function toggleMylistPin(){
@@ -496,8 +496,9 @@ function showInfo(item,marker){
   if(item.src==='mylist'){showMylistInfo(item,marker);return;}
   var color=SRC_COLOR[item.src]||'#999';
   var bgtStr=item.sbgt||(item.bgt_d?'夜 ¥'+Number(item.bgt_d).toLocaleString()+(item.bgt_l?' / 昼 ¥'+Number(item.bgt_l).toLocaleString():''):'');
-  var gmUrl=item.pid?'https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(item.name)+'&query_place_id='+item.pid:(item.lat&&item.lng)?'https://maps.google.com/?q='+item.lat+','+item.lng:'https://www.google.com/maps/search/'+encodeURIComponent(item.name);
   var key=getKey(item);
+  var _defaultGmUrl=item.pid?'https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(item.name)+'&query_place_id='+item.pid:(item.lat&&item.lng)?'https://maps.google.com/?q='+item.lat+','+item.lng:'https://www.google.com/maps/search/'+encodeURIComponent(item.name);
+  var gmUrl=(gmapLinks[key])||_defaultGmUrl;
   var existingMemo=memoData[key]||'';
   var nameHtml='<a href="'+esc(gmUrl)+'" target="_blank" rel="noopener">'+esc(item.name)+'</a>';
   // 重複ソースのデータを取得
@@ -520,7 +521,6 @@ function showInfo(item,marker){
       if(d.src==='michelin'&&d.award&&!dupAdded.michelin){dupAdded.michelin=true;dupExtra+='<div class="iw-row" style="color:#f9a825">⭐ ミシュラン '+(MICH_STAR[d.award]||esc(d.award))+'</div>';}
     });
   }
-  window._mlInfoPrefill={name:item.name,lat:item.lat,lng:item.lng,pid:item.pid||''};
   var html='<div class="iw" id="iw-inner">'
     +'<span class="iw-src" style="background:'+color+'">'+(item.url?'<a href="'+esc(item.url)+'" target="_blank" rel="noopener" style="color:#fff;text-decoration:none">'+esc(SRC_LABEL[item.src]||item.src)+'</a>':esc(SRC_LABEL[item.src]||item.src))+'</span>'
     +(item.dup&&item.dup.length>1?item.dup.filter(function(s){return s!==item.src&&dupUrls[s];}).map(function(s){var u=dupUrls[s];return'<span class="iw-src" style="background:'+SRC_COLOR[s]+'"><a href="'+esc(u)+'" target="_blank" rel="noopener" style="color:#fff;text-decoration:none">'+SRC_LABEL[s]+'</a></span>';}).join(' '):'')
@@ -535,11 +535,39 @@ function showInfo(item,marker){
     +(isMaster&&existingMemo?'<div class="iw-memo-existing" onclick="openMemoEdit(\''+esc(key)+'\')">📝 '+esc(existingMemo)+'</div>':'')
     +'<div class="iw-links">'
     +(isMaster?'<a class="iw-link" style="background:#29b6f6" href="#" onclick="openMemoEdit(\''+esc(key)+'\');return false">メモ</a>':'')
+    +'<a class="iw-link" style="background:#607d8b" href="#" onclick="openGmapEdit(\''+esc(key)+'\');return false">地図リンク</a>'
     +(item.ikyu_id?'<a class="iw-link" style="background:#795548" href="https://restaurant.ikyu.com/'+item.ikyu_id+'" target="_blank" rel="noopener">一休</a>':'')
-    +'<a class="iw-link" style="background:#9c27b0" href="#" onclick="openMylistModal(window._mlInfoPrefill);return false">＋ リスト</a>'
     +'</div></div>';
   infoWin.setContent(html);infoWin.open(map,marker);
 }
+var gmapLinks={};
+function loadGmapLinks(){try{gmapLinks=JSON.parse(localStorage.getItem('foods_gmap_links')||'{}');}catch(e){gmapLinks={};}}
+function saveGmapLinks(){try{localStorage.setItem('foods_gmap_links',JSON.stringify(gmapLinks));}catch(e){}}
+
+function openGmapEdit(key){
+  var iw=document.getElementById('iw-inner');if(!iw)return;
+  var existing=iw.querySelector('.iw-gmap-edit-wrap');
+  if(existing){existing.style.display='block';return;}
+  var cur=gmapLinks[key]||'';
+  var wrap=document.createElement('div');wrap.className='iw-gmap-edit-wrap';
+  wrap.style.cssText='margin-top:6px;display:flex;flex-direction:column;gap:4px';
+  wrap.innerHTML='<input class="iw-gmap-input" placeholder="GoogleマップのURL" value="'+esc(cur)+'" style="font-size:11px;padding:4px 6px;border:1px solid #ccc;border-radius:4px;width:100%;box-sizing:border-box">'
+    +'<div style="display:flex;gap:4px">'
+    +'<button class="iw-memo-save" onclick="saveGmapLink(\''+esc(key)+'\')">保存</button>'
+    +'<span class="iw-memo-saved" id="gmap-saved-msg" style="display:none;font-size:11px;color:#43a047">保存済</span>'
+    +'</div>';
+  iw.appendChild(wrap);
+}
+function saveGmapLink(key){
+  var inp=document.querySelector('.iw-gmap-input');if(!inp)return;
+  var url=inp.value.trim();
+  if(url)gmapLinks[key]=url;else delete gmapLinks[key];
+  saveGmapLinks();
+  var msg=document.getElementById('gmap-saved-msg');if(msg){msg.style.display='inline';setTimeout(function(){msg.style.display='none';},2000);}
+  // 店名リンクを即座に更新
+  var nameA=document.querySelector('#iw-inner .iw-name a');if(nameA&&url)nameA.href=url;
+}
+
 function openMemoEdit(key){
   var existing=memoData[key]||'';
   var iw=document.getElementById('iw-inner');if(!iw)return;
@@ -829,7 +857,8 @@ function initMap(){
     }
   });
   try{localStorage.removeItem('foods_f');}catch(e){}
-  loadMemo();buildFilters();renderMylistItems();
+  if(!isMaster){var ms=document.getElementById('mylist-sec');if(ms)ms.style.display='none';}
+  loadMemo();loadGmapLinks();buildFilters();renderMylistItems();
   if(isMaster){
     var gb=document.getElementById('ml-geocode-btn'),eb=document.getElementById('ml-export-btn');
     if(gb)gb.style.display='';if(eb)eb.style.display='';
@@ -863,7 +892,7 @@ function doSearch(){
     var _geo={name:kw,address:addr,lat:loc.lat(),lng:loc.lng()};
     var html='<div class="iw"><div class="iw-name">'+esc(kw)+'</div><div class="iw-row">📍 '+esc(addr)+'</div>'
       +'<div class="iw-links">'
-      +'<a class="iw-link" style="background:#9c27b0" href="#" onclick="openMylistModal(window._lastGeo);return false">＋ マイリスト</a>'
+      +(isMaster?'<a class="iw-link" style="background:#9c27b0" href="#" onclick="openMylistModal(window._lastGeo);return false">＋ マイリスト</a>':'')
       +'<a class="iw-link" style="background:#555" href="'+esc(gmUrl)+'" target="_blank" rel="noopener">Googleマップ</a>'
       +'</div></div>';
     window._lastGeo=_geo;
