@@ -469,9 +469,21 @@ function makeDupSvg(srcs){
   });
   return{url:'data:image/svg+xml,'+encodeURIComponent(svg+'</svg>'),scaledSize:new google.maps.Size(size,size),anchor:new google.maps.Point(cx,cx)};
 }
+function makeMoppySvg(reward){
+  var m=/(\d+)%/.exec(reward||''),pct=m?parseInt(m[1]):null,is100=pct===100;
+  var r=is100?18:14,size=r*2,label=pct?pct+'%':'?',fs=label.length>=4?r*0.52:r*0.62;
+  var color=is100?'#FF6B35':'#00b0a0';
+  var svg='<svg xmlns="http://www.w3.org/2000/svg" width="'+size+'" height="'+size+'">'
+    +'<circle cx="'+r+'" cy="'+r+'" r="'+(r-1.5)+'" fill="'+color+'" stroke="#fff" stroke-width="2.5"/>'
+    +(is100?'<circle cx="'+r+'" cy="'+r+'" r="'+(r-5)+'" fill="none" stroke="rgba(255,255,255,0.5)" stroke-width="1.2"/>':'')
+    +'<text x="'+r+'" y="'+(r+fs*0.38)+'" text-anchor="middle" dominant-baseline="middle" font-family="Arial,sans-serif" font-size="'+fs+'" font-weight="bold" fill="#fff">'+label+'</text>'
+    +'</svg>';
+  return{url:'data:image/svg+xml,'+encodeURIComponent(svg),scaledSize:new google.maps.Size(size,size),anchor:new google.maps.Point(r,r)};
+}
 function createMarker(item){
   var icon;
   if(item.dup&&item.dup.length>1){icon=makeDupSvg(item.dup);}
+  else if(item.src==='moppy'){icon=makeMoppySvg(item.award);}
   else{var color=SRC_COLOR[item.src]||'#999',scale=(item.src==='michelin'&&item.award==='ミシュラン 三つ星')?11:(item.src==='michelin'&&item.award==='ミシュラン 二つ星')?10:8;icon={path:google.maps.SymbolPath.CIRCLE,fillColor:color,fillOpacity:1,strokeColor:'#fff',strokeWeight:2,scale:scale};}
   var marker=new google.maps.Marker({position:{lat:item.lat,lng:item.lng},map:map,title:item.name,icon:icon});
   marker._item=item;
