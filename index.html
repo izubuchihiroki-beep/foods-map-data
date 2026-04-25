@@ -724,7 +724,19 @@ function renderMylistItems(){
   var geo=mylistData.filter(function(m){return m.lat&&m.lng;});
   var nogeo=mylistData.filter(function(m){return !m.lat||!m.lng;});
   if(!mylistData.length){el.innerHTML='<div style="font-size:11px;color:#aaa;padding:4px">登録なし</div>';return;}
-  if(nogeo.length){el.innerHTML='<div style="font-size:10px;color:#e65100;padding:2px 4px">📍未ジオコード '+nogeo.length+'件 — 「📍ジオコード」ボタンで座標を取得してください</div>';}
+  if(nogeo.length){
+    var nogeoHdr=document.createElement('div');
+    nogeoHdr.style.cssText='font-size:10px;color:#e65100;padding:2px 4px;margin-bottom:2px';
+    nogeoHdr.textContent='📍未ジオコード '+nogeo.length+'件（タップで編集）';
+    el.appendChild(nogeoHdr);
+    nogeo.forEach(function(m){
+      var row=document.createElement('div');row.className='ml-item';row.style.opacity='0.65';
+      row.innerHTML='<span class="ml-item-name" style="color:#e65100">📍 '+esc(m.name)+(m.tag?'<span style="font-size:9px;color:#9c27b0;margin-left:4px">'+esc(m.tag)+'</span>':'')+'</span>';
+      if(isMaster){row.innerHTML+='<button class="ml-item-del" onclick="confirmDeleteMylist(\''+esc(m.id)+'\',this);event.stopPropagation()">✕</button>';}
+      row.addEventListener('click',function(){openMylistEdit(m.id);});
+      el.appendChild(row);
+    });
+  }
   geo.forEach(function(m){
     var row=document.createElement('div');row.className='ml-item';
     row.innerHTML='<span class="ml-item-name">'+esc(m.name)+(m.tag?'<span style="font-size:9px;color:#9c27b0;margin-left:4px">'+esc(m.tag)+'</span>':'')+'</span>';
