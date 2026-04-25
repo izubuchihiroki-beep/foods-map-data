@@ -252,6 +252,9 @@ var mylistPinVisible = true;
 var mylistData = [];
 var memoData = {};
 var _mlLat = null, _mlLng = null;
+var _dataIndex = new Map();   // key→item（allData変更時のみ再構築）
+var _filterSet = new Set();   // shouldDisplay=trueのキー集合
+var _filterDirty = true;      // フィルタ変更フラグ
 
 function loadMylist(){try{mylistData=JSON.parse(localStorage.getItem('foods_mylist')||'[]');}catch(e){mylistData=[];}}
 function saveMylist(){try{localStorage.setItem('foods_mylist',JSON.stringify(mylistData));}catch(e){}}
@@ -306,7 +309,7 @@ function toggleBudgetKey(stateKey,key,btn,color){
   var set=fState[stateKey];
   if(set.has(key)){set.delete(key);btn.classList.remove('on');btn.style.background='';}
   else{set.add(key);btn.classList.add('on');btn.style.background=color;}
-  renderMarkers();
+  invalidateFilter();renderMarkers();
 }
 function mkBtn(label,val,color,on){
   var b=document.createElement('button');
@@ -317,7 +320,7 @@ function toggleF(key,val,btn,color){
   var set=fState[key], nv=(key==='mich_budgets')?Number(val):val;
   if(set.has(nv)){set.delete(nv);btn.classList.remove('on');btn.style.background='';}
   else{set.add(nv);btn.classList.add('on');btn.style.background=color;}
-  renderMarkers();
+  invalidateFilter();renderMarkers();
 }
 function srcAll(src){
   if(src==='tabelog'){
@@ -334,7 +337,7 @@ function srcAll(src){
     fState.mich_budgets=on?new Set():new Set([3000,8000,20000,40000]);
     document.querySelectorAll('#mich-award-row .fbtn,#mich-budget-row .fbtn').forEach(function(b){b.classList.toggle('on',!on);b.style.background=!on?'#f9a825':'';});
   }
-  renderMarkers();
+  invalidateFilter();renderMarkers();
 }
 function selectAll(){
   var allOn=fState.tabe.size===TABELOG_CATS.length&&fState.goei.size===GOEI_GENRES.length&&fState.mich_awards.size===MICH_AWARDS.length;
@@ -350,7 +353,7 @@ function selectAll(){
     document.querySelectorAll('#mich-award-row .fbtn,#mich-budget-row .fbtn').forEach(function(b){b.classList.add('on');b.style.background='#f9a825';});
     btn.textContent='全解除';
   }
-  renderMarkers();
+  invalidateFilter();renderMarkers();
 }
 
 // ===== DISPLAY =====
@@ -370,6 +373,18 @@ function passBudgetFilter(item){
   var bgt_d=item.bgt_d||0, bgt_l=item.bgt_l||0;
   return _matchBgtSet('budgets_d',BUDGET_RANGES_D,bgt_d) && _matchBgtSet('budgets_l',BUDGET_RANGES_L,bgt_l);
 }
+function rebuildDataIndex(){
+  _dataIndex.clear();
+  for(var i=0;i<allData.length;i++){var item=allData[i];if(item.lat&&item.lng)_dataIndex.set(getKey(item),item);}
+  _filterDirty=true;
+}
+function invalidateFilter(){_filterDirty=true;}
+function updateFilterCache(){
+  if(!_filterDirty)return;
+  _filterSet.clear();
+  _dataIndex.forEach(function(item,key){if(shouldDisplay(item))_filterSet.add(key);});
+  _filterDirty=false;
+}
 function shouldDisplay(item){
   if(item.src==='tabelog')    return fState.tabe.size>0 && fState.tabe.has(item.award) && passBudgetFilter(item);
   if(item.src==='goeimillau') return fState.goei.size>0 && fState.goei.has(item.genre) && passBudgetFilter(item);
@@ -384,7 +399,7 @@ function toggleMylistPin(){
   btn.textContent=mylistPinVisible?'ピン非表示':'ピン表示';
   btn.style.background=mylistPinVisible?'#9c27b0':'';
   btn.style.color=mylistPinVisible?'#fff':'';
-  renderMarkers();
+  invalidateFilter();renderMarkers();
 }
 function toggleMoppyPin(){
   moppyPinVisible=!moppyPinVisible;
@@ -392,7 +407,7 @@ function toggleMoppyPin(){
   btn.textContent=moppyPinVisible?'ピン非表示':'ピン表示';
   btn.style.background=moppyPinVisible?'#00b0a0':'';
   btn.style.color=moppyPinVisible?'#fff':'';
-  renderMarkers();
+  invalidateFilter();renderMarkers();
 }
 function getKey(item){return item.src==='mylist'?'mylist|'+item.id:item.src+'|'+(item.url||item.name);}
 
@@ -401,16 +416,14 @@ function renderMarkers(){
   if(!dataLoaded)return;
   if(map.getZoom()<SHOW_ZOOM){markerPool.forEach(function(m){m.setMap(null);});setStatus('ズームイン（レベル'+SHOW_ZOOM+'以上）でピン表示');return;}
   var bounds=map.getBounds();if(!bounds)return;
-  var shouldShow=new Set(),dataIndex=new Map();
-  for(var i=0;i<allData.length;i++){
-    var item=allData[i];if(!item.lat||!item.lng)continue;
-    var key=getKey(item);dataIndex.set(key,item);
-    if(!shouldDisplay(item))continue;
-    if(!bounds.contains({lat:item.lat,lng:item.lng}))continue;
-    shouldShow.add(key);
-  }
+  updateFilterCache();  // フィルタ変更時のみ全件スキャン
+  var shouldShow=new Set();
+  _filterSet.forEach(function(key){
+    var item=_dataIndex.get(key);
+    if(item&&bounds.contains({lat:item.lat,lng:item.lng}))shouldShow.add(key);
+  });
   markerPool.forEach(function(m,key){if(shouldShow.has(key)){if(!m.getMap())m.setMap(map);}else{if(m.getMap())m.setMap(null);}});
-  shouldShow.forEach(function(key){if(!markerPool.has(key)){var item=dataIndex.get(key);if(item)createMarker(item);}});
+  shouldShow.forEach(function(key){if(!markerPool.has(key)){var item=_dataIndex.get(key);if(item)createMarker(item);}});
   var vis=0;markerPool.forEach(function(m){if(m.getMap())vis++;});
   setStatus(vis+'件表示中 / 全'+allData.length+'件');
 }
@@ -560,7 +573,7 @@ function saveMylistItem(){
     item.bgt_l=Number(payload.bgt_l)||0;item.bgt_d=Number(payload.bgt_d)||0;
     if(item.memo){memoData[getKey(item)]=item.memo;try{localStorage.setItem('foods_memo',JSON.stringify(memoData));}catch(e){}}
     mylistData.push(item);saveMylist();
-    allData.push(item);renderMylistItems();renderMarkers();
+    allData.push(item);renderMylistItems();rebuildDataIndex();renderMarkers();
     if(saveBtn){saveBtn.disabled=false;saveBtn.textContent='保存';}
     closeMylistModal();
   });
@@ -572,7 +585,7 @@ function deleteMylistItem(id){
   var key='mylist|'+id;
   var m=markerPool.get(key);if(m)m.setMap(null);markerPool.delete(key);
   delete memoData[key];try{localStorage.setItem('foods_memo',JSON.stringify(memoData));}catch(e){}
-  renderMylistItems();renderMarkers();
+  renderMylistItems();rebuildDataIndex();renderMarkers();
   gasPost({action:'deleteMylist',id:id},null);
 }
 function renderMylistItems(){
@@ -600,14 +613,14 @@ function loadMoppyData(callback){
 function loadFoodsData(){
   try{
     var raw=localStorage.getItem(FOODS_CACHE_KEY);
-    if(raw){var obj=JSON.parse(raw);if(obj&&obj.ts&&Date.now()-obj.ts<FOODS_CACHE_TTL&&obj.data&&obj.data.length>0){allData=mergeData(obj.data);dataLoaded=true;renderMarkers();}}
+    if(raw){var obj=JSON.parse(raw);if(obj&&obj.ts&&Date.now()-obj.ts<FOODS_CACHE_TTL&&obj.data&&obj.data.length>0){allData=mergeData(obj.data);dataLoaded=true;rebuildDataIndex();renderMarkers();}}
   }catch(e){}
 
   fetch(FOODS_CDN+'?t='+Date.now())
     .then(function(r){if(!r.ok)throw 0;return r.json();})
     .then(function(d){
       try{localStorage.setItem(FOODS_CACHE_KEY,JSON.stringify({ts:Date.now(),data:d}));}catch(e){}
-      allData=mergeData(d);dataLoaded=true;renderMarkers();
+      allData=mergeData(d);dataLoaded=true;rebuildDataIndex();renderMarkers();
     }).catch(function(){if(!dataLoaded)setStatus('データ取得失敗');});
 }
 
@@ -764,7 +777,7 @@ function pollSteps(){
         clearInterval(pollTimer);
         document.getElementById('progress-wrap').style.display='none';
         document.getElementById('update-btn').disabled=false;
-        loadMoppyData(function(){allData=mergeData(allData.filter(function(d){return d.src!=='moppy';}));renderMarkers();});
+        loadMoppyData(function(){allData=mergeData(allData.filter(function(d){return d.src!=='moppy';}));rebuildDataIndex();renderMarkers();});
         setStatus(job.conclusion==='success'?'Moppy更新完了':'Moppy更新失敗');
       }
     }).catch(function(){});
