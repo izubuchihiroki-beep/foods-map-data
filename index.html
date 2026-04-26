@@ -542,6 +542,7 @@ function showInfo(item,marker){
     var THRESH=0.0002;
     allData.forEach(function(d){
       if(d.src===item.src||Math.abs(d.lat-item.lat)>THRESH||Math.abs(d.lng-item.lng)>THRESH)return;
+      if(!item.dup||item.dup.indexOf(d.src)===-1)return;
       if(d.url&&(!dupUrls[d.src]||(item.pid&&d.pid&&d.pid===item.pid)))dupUrls[d.src]=d.url;
       if(d.src==='tabelog'&&!dupAdded.tabelog){
         dupAdded.tabelog=true;
