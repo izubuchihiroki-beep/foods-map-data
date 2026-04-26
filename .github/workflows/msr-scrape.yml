@@ -2,8 +2,8 @@ name: MSR Scraper
 
 on:
   workflow_dispatch: {}
-  schedule:
-    - cron: '0 20 * * *'  # 毎日JST 5時（UTC 20時）
+  # schedule無効: MSRサイトが海外IPをブロックするため GitHub Actions非対応
+  # RPi4のcronで実行すること
 
 jobs:
   scrape:
