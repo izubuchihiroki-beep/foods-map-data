@@ -121,6 +121,7 @@ body{font-family:'Hiragino Sans',sans-serif;height:100vh;display:flex;overflow:h
         <span class="sec-title"><span class="sec-dot" style="background:#e53935"></span>食べログ百名店</span>
         <button class="sec-all" onclick="srcAll('tabelog')">全選択</button>
       </div>
+      <div class="frow" id="tabe-score-row" style="margin-bottom:6px"></div>
       <div class="fgrid" id="tabe-grid"></div>
     </div>
 
@@ -146,12 +147,7 @@ body{font-family:'Hiragino Sans',sans-serif;height:100vh;display:flex;overflow:h
     <div class="sec" id="mylist-sec">
       <div class="sec-hd">
         <span class="sec-title"><span class="sec-dot" style="background:#9c27b0"></span>マイリスト</span>
-        <div style="display:flex;gap:4px;flex-wrap:wrap">
-          <button id="ml-pin-btn" class="sec-all" onclick="toggleMylistPin()" style="background:#9c27b0;color:#fff">ピン表示</button>
-          <button class="sec-all" onclick="openMylistModal(null)" style="background:#f3e5f5;color:#6a1b9a">＋ 追加</button>
-          <button id="ml-geocode-btn" class="sec-all" onclick="geocodeAllMylist()" style="display:none;background:#673ab7;color:#fff">📍ジオコード</button>
-          <button id="ml-export-btn" class="sec-all" onclick="downloadMylistJson()" style="display:none;background:#4caf50;color:#fff">⬇ JSON</button>
-        </div>
+        <button id="ml-pin-btn" class="sec-all" onclick="toggleMylistPin()" style="background:#9c27b0;color:#fff">ピン表示</button>
       </div>
       <div id="mylist-items"></div>
     </div>
@@ -292,11 +288,26 @@ function loadMylistData(cb){
 
 var fState = {
   tabe:new Set(), goei:new Set(), mich_awards:new Set(), mich_budgets:new Set(),
-  budgets_d:new Set(), budgets_l:new Set()
+  budgets_d:new Set(), budgets_l:new Set(), tabe_min_score:0
 };
 
 // ===== FILTERS =====
 function buildFilters() {
+  var sr=document.getElementById('tabe-score-row');
+  [{label:'3.5〜',val:3.5},{label:'4.0〜',val:4.0},{label:'4.5〜',val:4.5}].forEach(function(s){
+    var b=mkBtn(s.label,s.val,'#e53935',false);
+    b.addEventListener('click',function(){
+      var cur=fState.tabe_min_score;
+      fState.tabe_min_score=(cur===s.val?0:s.val);
+      document.querySelectorAll('#tabe-score-row .fbtn').forEach(function(x){
+        var v=parseFloat(x.dataset.val);
+        x.classList.toggle('on',v===fState.tabe_min_score);
+        x.style.background=v===fState.tabe_min_score?'#e53935':'';
+      });
+      _filterDirty=true;renderMarkers();
+    });
+    sr.appendChild(b);
+  });
   var tg=document.getElementById('tabe-grid');
   TABE_MAIN.forEach(function(cat){
     var b=mkBtn(TABE_LABELS[cat]||cat,cat,'#e53935',false); b.title=cat;
@@ -416,7 +427,11 @@ function updateFilterCache(){
   _filterDirty=false;
 }
 function shouldDisplay(item){
-  if(item.src==='tabelog')    return fState.tabe.size>0 && fState.tabe.has(item.award) && passBudgetFilter(item);
+  if(item.src==='tabelog'){
+    if(fState.tabe.size===0||!fState.tabe.has(item.award))return false;
+    if(fState.tabe_min_score>0){var s=parseFloat(item.score);if(isNaN(s)||s<fState.tabe_min_score)return false;}
+    return passBudgetFilter(item);
+  }
   if(item.src==='goeimillau') return fState.goei.size>0 && fState.goei.has(item.genre) && passBudgetFilter(item);
   if(item.src==='michelin'){if(fState.mich_awards.size===0)return false;if(!fState.mich_awards.has(item.award))return false;if(fState.mich_budgets.size>0&&!fState.mich_budgets.has(item.bgt_d||0))return false;return passBudgetFilter(item);}
   if(item.src==='moppy') return moppyPinVisible && passBudgetFilter(item);
