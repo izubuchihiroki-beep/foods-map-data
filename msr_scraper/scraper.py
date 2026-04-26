@@ -37,8 +37,11 @@ def login() -> requests.Session:
         page = ctx.new_page()
         # AutomationControlledフラグをJSで除去
         page.add_init_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
-        page.goto(LOGON_URL, wait_until="networkidle", timeout=30000)
-        page.wait_for_selector('input[name="LogonID"]', timeout=20000)
+        page.goto(LOGON_URL, wait_until="domcontentloaded", timeout=60000)
+        time.sleep(3)  # Cloudflare JS challenge 完了待ち
+        print(f"[login] URL={page.url} title={page.title()}", file=sys.stderr)
+        print(f"[login] HTML[:500]={page.content()[:500]}", file=sys.stderr)
+        page.wait_for_selector('input[name="LogonID"]', timeout=30000)
         page.fill('input[name="LogonID"]', LOGIN_ID)
         page.fill('#Password', LOGIN_PW)
         page.get_by_role("button", name="モニターサイトへ ログイン").click()
