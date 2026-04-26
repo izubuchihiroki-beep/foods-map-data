@@ -449,7 +449,22 @@ function passBudgetFilter(item){
   var bgt_d=item.bgt_d||0, bgt_l=item.bgt_l||0;
   return _matchBgtSet('budgets_d',BUDGET_RANGES_D,bgt_d) && _matchBgtSet('budgets_l',BUDGET_RANGES_L,bgt_l);
 }
+function normalizeDupCoords(){
+  var THRESH=0.001;
+  allData.forEach(function(item){
+    if(!item.dup||item.dup.length<2)return;
+    var best=item,bp=SRC_PRIORITY[item.src]||9;
+    allData.forEach(function(d){
+      if(d.src===item.src||item.dup.indexOf(d.src)===-1)return;
+      if(Math.abs(d.lat-item.lat)>THRESH||Math.abs(d.lng-item.lng)>THRESH)return;
+      var dp=SRC_PRIORITY[d.src]||9;
+      if(dp<bp){bp=dp;best=d;}
+    });
+    if(best!==item){item.lat=best.lat;item.lng=best.lng;}
+  });
+}
 function rebuildDataIndex(){
+  normalizeDupCoords();
   _dataIndex.clear();
   for(var i=0;i<allData.length;i++){var item=allData[i];if(item.lat&&item.lng)_dataIndex.set(getKey(item),item);}
   _filterDirty=true;
