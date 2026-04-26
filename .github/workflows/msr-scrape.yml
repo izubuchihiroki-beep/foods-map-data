@@ -1,0 +1,40 @@
+name: MSR Scraper
+
+on:
+  workflow_dispatch: {}
+  schedule:
+    - cron: '0 20 * * *'  # 毎日JST 5時（UTC 20時）
+
+jobs:
+  scrape:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GH_TOKEN }}
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          pip install -r msr_scraper/requirements.txt
+          playwright install chromium --with-deps
+
+      - name: Run scraper
+        env:
+          MSR_LOGIN_ID: ${{ secrets.MSR_LOGIN_ID }}
+          MSR_LOGIN_PW: ${{ secrets.MSR_LOGIN_PW }}
+        run: python msr_scraper/scraper.py
+
+      - name: Commit msr-data.json
+        run: |
+          git config user.email "actions@github.com"
+          git config user.name "GitHub Actions"
+          git add msr-data.json
+          git diff --staged --quiet || git commit -m "msr data update: $(TZ=Asia/Tokyo date '+%Y-%m-%d')"
+          git pull --rebase origin main
+          git push
