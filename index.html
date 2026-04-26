@@ -491,7 +491,7 @@ function toggleMoppyPin(){
   btn.style.color=moppyPinVisible?'#fff':'';
   invalidateFilter();renderMarkers();
 }
-function getKey(item){return item.src==='mylist'?'mylist|'+item.id:item.src+'|'+(item.url||item.name);}
+function getKey(item){return item.src==='mylist'?'mylist|'+item.id:item.src==='msr'?'msr|'+item.name+'|'+(item.area||''):item.src+'|'+(item.url||item.name);}
 
 // ===== RENDER =====
 function renderMarkers(){
