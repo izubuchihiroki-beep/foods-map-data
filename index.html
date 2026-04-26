@@ -527,6 +527,7 @@ function toggleFancrewPin(){
   btn.textContent=fancrewPinVisible?'ピン非表示':'ピン表示';
   btn.style.background=fancrewPinVisible?'#ff6f00':'';
   btn.style.color=fancrewPinVisible?'#fff':'';
+  invalidateFilter();renderMarkers();
 }
 function toggleMsrPin(){
   msrPinVisible=!msrPinVisible;
