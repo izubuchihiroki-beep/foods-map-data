@@ -11,6 +11,8 @@ body{font-family:'Hiragino Sans',sans-serif;height:100vh;display:flex;overflow:h
 #sb{width:300px;flex-shrink:0;background:#fff;border-right:1px solid #e0e0e0;display:flex;flex-direction:column;z-index:10;box-shadow:2px 0 8px rgba(0,0,0,.08);overflow:hidden;transition:width .25s}
 #sb.collapsed{width:0}
 
+#collapse-btn{position:fixed;top:50%;left:300px;transform:translateY(-50%);z-index:20;background:rgba(26,26,46,.85);color:#fff;border:none;border-radius:0 5px 5px 0;padding:10px 5px;cursor:pointer;font-size:14px;transition:left .25s;line-height:1}
+
 #topbar{background:#1a1a2e;padding:8px;display:flex;gap:4px;align-items:center;flex-shrink:0}
 #search-inp{flex:1;border:none;border-radius:5px;padding:6px 8px;font-size:12px;outline:none;min-width:0}
 .tb-btn{background:rgba(255,255,255,.15);color:#fff;border:none;border-radius:5px;padding:6px 8px;font-size:13px;cursor:pointer;white-space:nowrap;flex-shrink:0}
@@ -87,7 +89,7 @@ body{font-family:'Hiragino Sans',sans-serif;height:100vh;display:flex;overflow:h
   #sb.sh-full{height:calc(100vh - 20px)}
   #handle{display:flex!important;justify-content:center;padding:9px 0 5px;cursor:pointer;flex-shrink:0;touch-action:none}
   #handle::before{content:'';width:36px;height:4px;background:#ccc;border-radius:2px;display:block}
-  #collapse-btn{display:none}
+  #collapse-btn{display:none!important}
 }
 </style>
 </head>
@@ -100,7 +102,6 @@ body{font-family:'Hiragino Sans',sans-serif;height:100vh;display:flex;overflow:h
     <input type="text" id="search-inp" placeholder="エリア検索" onkeypress="if(event.key==='Enter')doSearch()">
     <button class="tb-btn" onclick="doSearch()">🔍</button>
     <button class="tb-btn" id="select-all-btn" onclick="selectAll()" title="全選択／全解除">全選択</button>
-    <button class="tb-btn" id="collapse-btn" onclick="toggleSidebar()">◀</button>
   </div>
   <div id="status-bar">読み込み中...</div>
   <div id="budget-bar">
@@ -234,6 +235,7 @@ body{font-family:'Hiragino Sans',sans-serif;height:100vh;display:flex;overflow:h
 </div>
 
 <div id="map"></div>
+<button id="collapse-btn" onclick="toggleSidebar()">◀</button>
 
 <script>
 var API_KEY  = 'AIzaSyAMBPa_T_URVyJNn1lHnXjzDiEZoKPNPSw';
@@ -1129,7 +1131,9 @@ function toggleSidebar(){
   if(window.innerWidth<=600)return;
   _sbCollapsed=!_sbCollapsed;
   document.getElementById('sb').classList.toggle('collapsed',_sbCollapsed);
-  document.getElementById('collapse-btn').textContent=_sbCollapsed?'▶':'◀';
+  var btn=document.getElementById('collapse-btn');
+  btn.textContent=_sbCollapsed?'▶':'◀';
+  btn.style.left=_sbCollapsed?'0':'300px';
 }
 
 // ===== MOBILE SHEET =====
