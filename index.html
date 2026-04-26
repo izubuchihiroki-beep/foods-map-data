@@ -547,9 +547,8 @@ function toggleMsrList(){
   list.style.display=open?'block':'none';btn.textContent=open?'▲':'▼';
 }
 function makeMsrSvg(reward){
-  var m=/[\d,]+/.exec((reward||'').replace(/,/g,''));
-  var val=m?parseInt(m[0]):0;
-  var label=val>=10000?(Math.round(val/1000)+'k'):(val>=1000?(val/1000).toFixed(val%1000?1:0)+'k'):val?val+'':'?';
+  var val=parseInt((reward||'').replace(/[,円]/g,''))||0;
+  var label=val>=10000?(Math.round(val/1000)+'k'):val>=1000?((val/1000).toFixed(1)+'k'):val?(val+''):'?';
   var color='#7b1fa2';
   var fs=11,sw=2,rx=4,triH=7;
   var pw=label.length<=3?34:42,ph=20;
