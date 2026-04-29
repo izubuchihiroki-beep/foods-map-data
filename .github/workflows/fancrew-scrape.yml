@@ -3,7 +3,7 @@ name: Fancrew Scraper
 on:
   workflow_dispatch: {}
   schedule:
-    - cron: '0 19 * * *'  # 毎日JST 4時（UTC 19時）
+    - cron: '30 18 * * *'  # 毎日JST 3時半（UTC 18:30）
 
 jobs:
   scrape:
