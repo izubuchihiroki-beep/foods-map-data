@@ -972,25 +972,17 @@ function loadFoodsData(){
 function mergeData(foodsArr){
   var result=foodsArr.slice();
   var entry=moppyData&&moppyData['all'];
-  var cnt=0,moppyList=document.getElementById('moppy-list');
-  moppyList.innerHTML='';
   if(entry&&entry.stores){
     var updated=entry.updated?new Date(entry.updated).toLocaleDateString('ja-JP'):'';
+    var cnt=0;
     entry.stores.forEach(function(s){
       if(!s.lat||!s.lng||!isFinite(s.lat)||!isFinite(s.lng))return;
-      result.push({src:'moppy',name:s.name,lat:s.lat,lng:s.lng,url:s.url,award:s.reward||'',genre:'',bgt:0,pid:'',area:s.address||''});
+      result.push({src:'moppy',name:s.name,lat:s.lat,lng:s.lng,url:s.url,award:s.reward||'',genre:'',bgt_d:0,bgt_l:0,sbgt:s.budget||'',pid:'',area:s.address||''});
       cnt++;
-      var card=document.createElement('div');
-      card.style.cssText='padding:6px 4px;border-bottom:1px solid #f5f5f5;cursor:pointer;font-size:11px';
-      card.innerHTML='<div style="font-weight:600;color:#1a1a1a">'+esc(s.name)+'</div>'+(s.reward?'<div style="color:#e67e22;font-size:10px">'+esc(s.reward)+'</div>':'')+(s.address?'<div style="color:#aaa;font-size:10px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+esc(s.address)+'</div>':'');
-      card.addEventListener('click',function(){map.setCenter({lat:s.lat,lng:s.lng});map.setZoom(16);});
-      moppyList.appendChild(card);
     });
     document.getElementById('moppy-count').textContent=cnt+'件'+(updated?'（'+updated+'）':'');
   }
   var fcEntry=fancrewData;
-  var fcList=document.getElementById('fancrew-list');
-  fcList.innerHTML='';
   if(fcEntry&&fcEntry.stores){
     var fcUpdated=fcEntry.updated?new Date(fcEntry.updated).toLocaleDateString('ja-JP'):'';
     var fcCnt=0;
@@ -998,17 +990,10 @@ function mergeData(foodsArr){
       if(!s.lat||!s.lng||!isFinite(s.lat)||!isFinite(s.lng))return;
       result.push({src:'fancrew',name:s.name,lat:s.lat,lng:s.lng,url:s.url,award:s.reward||'',genre:'',bgt_d:0,bgt_l:0,sbgt:s.budget||'',pid:'',area:s.address||''});
       fcCnt++;
-      var card=document.createElement('div');
-      card.style.cssText='padding:6px 4px;border-bottom:1px solid #f5f5f5;cursor:pointer;font-size:11px';
-      card.innerHTML='<div style="font-weight:600;color:#1a1a1a">'+esc(s.name)+'</div>'+(s.reward?'<div style="color:#ff6f00;font-size:10px">'+esc(s.reward)+'</div>':'')+(s.address?'<div style="color:#aaa;font-size:10px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+esc(s.address)+'</div>':'');
-      card.addEventListener('click',function(){map.setCenter({lat:s.lat,lng:s.lng});map.setZoom(16);});
-      fcList.appendChild(card);
     });
     document.getElementById('fancrew-count').textContent=fcCnt+'件'+(fcUpdated?'（'+fcUpdated+'）':'');
   }
   var msrEntry=msrData;
-  var msrList=document.getElementById('msr-list');
-  msrList.innerHTML='';
   if(msrEntry&&msrEntry.stores){
     var msrUpdated=msrEntry.updated?new Date(msrEntry.updated).toLocaleDateString('ja-JP'):'';
     var msrCnt=0;
@@ -1016,11 +1001,6 @@ function mergeData(foodsArr){
       if(!s.lat||!s.lng||!isFinite(s.lat)||!isFinite(s.lng))return;
       result.push({src:'msr',name:s.name,lat:s.lat,lng:s.lng,url:s.url,award:s.reward||'',genre:'',bgt_d:0,bgt_l:0,sbgt:'',pid:'',area:s.address||''});
       msrCnt++;
-      var card=document.createElement('div');
-      card.style.cssText='padding:6px 4px;border-bottom:1px solid #f5f5f5;cursor:pointer;font-size:11px';
-      card.innerHTML='<div style="font-weight:600;color:#1a1a1a">'+esc(s.name)+'</div>'+(s.reward?'<div style="color:#7b1fa2;font-size:10px">'+esc(s.reward)+'</div>':'')+(s.address?'<div style="color:#aaa;font-size:10px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+esc(s.address)+'</div>':'');
-      card.addEventListener('click',function(){map.setCenter({lat:s.lat,lng:s.lng});map.setZoom(16);});
-      msrList.appendChild(card);
     });
     document.getElementById('msr-count').textContent=msrCnt+'件'+(msrUpdated?'（'+msrUpdated+'）':'');
   }
