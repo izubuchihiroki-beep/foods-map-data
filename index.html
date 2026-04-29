@@ -171,7 +171,7 @@ body{font-family:'Hiragino Sans',sans-serif;height:100vh;display:flex;overflow:h
 
     <div class="sec">
       <div class="sec-hd">
-        <span class="sec-title"><span class="sec-dot" style="background:#00b0a0"></span>Moppy フクモニ</span>
+        <span class="sec-title"><span class="sec-dot" style="background:#00b0a0"></span>Moppy</span>
         <span id="moppy-count" style="font-size:11px;color:#aaa"></span>
         <button id="moppy-pin-btn" class="sec-all" onclick="toggleMoppyPin()">ピン表示</button>
       </div>
@@ -694,7 +694,9 @@ function showInfo(item,marker){
     +(isMaster?'<a class="iw-link" style="background:#607d8b" href="#" onclick="openEditPanel(\''+esc(key)+'\');return false">編集</a>':'')
     +(item.src==='tabelog'?'<a class="iw-link" style="background:#1565c0" href="#" onclick="openMylistFromInfo();return false">マイリスト登録</a>':'')
     +(item.ikyu_id?'<a class="iw-link" style="background:#795548" href="https://restaurant.ikyu.com/'+item.ikyu_id+'" target="_blank" rel="noopener">一休</a>':'')
-    +'</div></div>';
+    +'</div>'
+    +(item.src==='msr'&&item.url?'<div style="font-size:11px;color:#999;margin-top:4px">⚠ <a href="https://ms-r.com" target="_blank" rel="noopener" style="color:#7b1fa2">ms-r.com</a> へのログインが必要です</div>':'')
+    +'</div>';
   infoWin.setContent(html);infoWin.open(map,marker);
 }
 function openMylistFromInfo(){
